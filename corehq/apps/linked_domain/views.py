@@ -156,17 +156,26 @@ class DomainLinkView(BaseAdminProjectSettingsView):
     def page_context(self):
         timezone = get_timezone_for_request()
         master_link = get_domain_master_link(self.domain)
-        linked_apps = {
-            app._id: app for app in get_brief_apps_in_domain(self.domain)
-            if is_linked_app(app)
-        }
+        briefs = get_brief_apps_in_domain(self.domain)
+        model_status = self._get_model_status(master_link, {
+            brief._id: brief for brief in briefs
+            if is_linked_app(brief)
+        })
+
+        # TODO: note this doesn't work with multi master
+        # TODO: only get these if this is a master domain
+        master_model_status = self._get_master_model_status({
+            brief._id: brief for brief in briefs
+            if is_linked_app(brief)
+        })     # TODO: exclude linked apps?
 
         return {
             'domain': self.domain,
             'timezone': timezone.localize(datetime.utcnow()).tzname(),
             'view_data': {
                 'master_link': self._link_context(master_link, timezone) if master_link else None,
-                'model_status': self._get_model_status(master_link, linked_apps),
+                'model_status': sorted(model_status, key=lambda m: m['name']),
+                'master_model_status': sorted(master_model_status, key=lambda m: m['name']),
                 'linked_domains': [
                     self._link_context(link, timezone) for link in get_linked_domains(self.domain)
                 ],
@@ -186,7 +195,34 @@ class DomainLinkView(BaseAdminProjectSettingsView):
             'last_update': server_to_user_time(link.last_pull, timezone) if link.last_pull else 'Never',
         }
 
-    def _get_model_status(self, master_link, linked_apps):
+    def _get_master_model_status(self, apps, ignore_models=None):
+        model_status = []
+        ignore_models = ignore_models or []
+
+        for model, name in LINKED_MODELS:
+            if model not in ignore_models and model != 'app':
+                model_status.append({
+                    'type': model,
+                    'name': name,
+                    'last_update': ugettext('Never'),
+                    'detail': None,
+                    'can_update': True
+                })
+
+        linked_models = dict(LINKED_MODELS)
+        for app in apps.values():
+            update = {
+                'type': 'app',
+                'name': '{} ({})'.format(linked_models['app'], app.name),
+                'last_update': None,
+                'detail': AppLinkDetail(app_id=app._id).to_json(),
+                'can_update': True
+            }
+            model_status.append(update)
+
+        return model_status
+
+    def _get_model_status(self, master_link, apps):
         model_status = []
         if not master_link:
             return model_status
@@ -218,7 +254,7 @@ class DomainLinkView(BaseAdminProjectSettingsView):
                 app_name = ugettext('Unknown App')
                 if action.model_detail:
                     detail = action.wrapped_detail
-                    app = linked_apps.pop(detail.app_id, None)
+                    app = apps.pop(detail.app_id, None)
                     app_name = app.name if app else detail.app_id
                     if app:
                         update['detail'] = action.model_detail
@@ -229,30 +265,10 @@ class DomainLinkView(BaseAdminProjectSettingsView):
                 update['name'] = '{} ({})'.format(name, app_name)
             model_status.append(update)
 
-        # Add in models that have never been synced
-        for model, name in LINKED_MODELS:
-            if model not in models_seen and model != 'app':
-                model_status.append({
-                    'type': model,
-                    'name': name,
-                    'last_update': ugettext('Never'),
-                    'detail': None,
-                    'can_update': True
-                })
+        # Add in models and apps that have never been synced
+        model_status.extend(self._get_master_model_status(apps, ignore_models=models_seen))
 
-        # Add in apps that have never been synced
-        if linked_apps:
-            for app in linked_apps.values():
-                update = {
-                    'type': 'app',
-                    'name': '{} ({})'.format(linked_models['app'], app.name),
-                    'last_update': None,
-                    'detail': AppLinkDetail(app_id=app._id).to_json(),
-                    'can_update': True
-                }
-                model_status.append(update)
-
-        return sorted(model_status, key=lambda m: m['name'])
+        return model_status
 
 
 @method_decorator(domain_admin_required, name='dispatch')

@@ -15,11 +15,12 @@ hqDefine("linked_domain/js/domain_links", [
     _private.RMI = function () {};
 
     var ModelStatus = function (data) {
-        var self = this;
+        var self = {};
         self.type = data.type;
         self.name = data.name;
         self.last_update = ko.observable(data.last_update);
         self.detail = data.detail;
+        self.showPush = ko.observable(self.type == 'app');
         self.showUpdate = ko.observable(data.can_update);
         self.update_url = null;
 
@@ -46,10 +47,12 @@ hqDefine("linked_domain/js/domain_links", [
                     self.showSpinner(false);
                 });
         };
+
+        return self;
     };
 
     var DomainLinksViewModel = function (data) {
-        var self = this;
+        var self = {};
         self.domain = data.domain;
         self.master_link = data.master_link;
         if (self.master_link) {
@@ -63,9 +66,9 @@ hqDefine("linked_domain/js/domain_links", [
         self.can_update = data.can_update;
         self.models = data.models;
 
-        self.model_status = _.map(data.model_status, function (model_status) {
-            return new ModelStatus(model_status);
-        });
+        self.model_status = _.map(data.model_status, ModelStatus);
+
+        self.master_model_status = _.map(data.master_model_status, ModelStatus);
 
         self.linked_domains = ko.observableArray(_.map(data.linked_domains, function (link) {
             return new DomainLink(link);
@@ -81,6 +84,14 @@ hqDefine("linked_domain/js/domain_links", [
                         'Please try again, or report an issue if the problem persists.'), 'danger');
                 });
         };
+
+        self.selectedPushModel = ko.observable();
+        self.openPushModal = function (model) {
+            self.selectedPushModel(model);
+            $("#modal-push-content").modal({show: true});
+        };
+
+        return self;
     };
 
     var DomainLink = function (link) {
@@ -109,6 +120,9 @@ hqDefine("linked_domain/js/domain_links", [
         var view_data = initialPageData.get('view_data');
         var csrfToken = $("#csrfTokenContainer").val();
         setRMI(initialPageData.reverse('linked_domain:domain_link_rmi'), csrfToken);
-        $("#domain_links").koApplyBindings(new DomainLinksViewModel(view_data));
+
+        var model = DomainLinksViewModel(view_data);
+        $("#domain_links").koApplyBindings(model);
+        $("#modal-push-content").koApplyBindings(model);
     });
 });
