@@ -155,88 +155,20 @@ class DomainLinkView(BaseAdminProjectSettingsView):
     @property
     def page_context(self):
         timezone = get_timezone_for_request()
-
-        def _link_context(link, timezone=timezone):
-            return {
-                'linked_domain': link.linked_domain,
-                'master_domain': link.qualified_master,
-                'remote_base_url': link.remote_base_url,
-                'is_remote': link.is_remote,
-                'last_update': server_to_user_time(link.last_pull, timezone) if link.last_pull else 'Never',
-            }
-
-        model_status = []
-        linked_models = dict(LINKED_MODELS)
         master_link = get_domain_master_link(self.domain)
-        if master_link:
-            linked_apps = {
-                app._id: app for app in get_brief_apps_in_domain(self.domain)
-                if is_linked_app(app)
-            }
-            models_seen = set()
-            history = DomainLinkHistory.objects.filter(link=master_link).annotate(row_number=RawSQL(
-                'row_number() OVER (PARTITION BY model, model_detail ORDER BY date DESC)',
-                []
-            ))
-            for action in history:
-                models_seen.add(action.model)
-                if action.row_number != 1:
-                    # first row is the most recent
-                    continue
-                name = linked_models[action.model]
-                update = {
-                    'type': action.model,
-                    'name': name,
-                    'last_update': server_to_user_time(action.date, timezone),
-                    'detail': action.model_detail,
-                    'can_update': True
-                }
-                if action.model == 'app':
-                    app_name = 'Unknown App'
-                    if action.model_detail:
-                        detail = action.wrapped_detail
-                        app = linked_apps.pop(detail.app_id, None)
-                        app_name = app.name if app else detail.app_id
-                        if app:
-                            update['detail'] = action.model_detail
-                        else:
-                            update['can_update'] = False
-                    else:
-                        update['can_update'] = False
-                    update['name'] = '{} ({})'.format(name, app_name)
-                model_status.append(update)
-
-            # Add in models that have never been synced
-            for model, name in LINKED_MODELS:
-                if model not in models_seen and model != 'app':
-                    model_status.append({
-                        'type': model,
-                        'name': name,
-                        'last_update': ugettext('Never'),
-                        'detail': None,
-                        'can_update': True
-                    })
-
-            # Add in apps that have never been synced
-            if linked_apps:
-                for app in linked_apps.values():
-                    update = {
-                        'type': 'app',
-                        'name': '{} ({})'.format(linked_models['app'], app.name),
-                        'last_update': None,
-                        'detail': AppLinkDetail(app_id=app._id).to_json(),
-                        'can_update': True
-                    }
-                    model_status.append(update)
+        linked_apps = {
+            app._id: app for app in get_brief_apps_in_domain(self.domain)
+            if is_linked_app(app)
+        }
 
         return {
             'domain': self.domain,
             'timezone': timezone.localize(datetime.utcnow()).tzname(),
             'view_data': {
-                'master_link': _link_context(master_link) if master_link else None,
-                'model_status': sorted(model_status, key=lambda m: m['name']),
+                'master_link': self._link_context(master_link, timezone) if master_link else None,
+                'model_status': self._get_model_status(master_link, linked_apps),
                 'linked_domains': [
-                    _link_context(link) for link in get_linked_domains(self.domain)
+                    self._link_context(link, timezone) for link in get_linked_domains(self.domain)
                 ],
                 'models': [
                     {'slug': model[0], 'name': model[1]}
@@ -244,6 +176,83 @@ class DomainLinkView(BaseAdminProjectSettingsView):
                 ]
             },
         }
+
+    def _link_context(self, link, timezone):
+        return {
+            'linked_domain': link.linked_domain,
+            'master_domain': link.qualified_master,
+            'remote_base_url': link.remote_base_url,
+            'is_remote': link.is_remote,
+            'last_update': server_to_user_time(link.last_pull, timezone) if link.last_pull else 'Never',
+        }
+
+    def _get_model_status(self, master_link, linked_apps):
+        model_status = []
+        if not master_link:
+            return model_status
+
+        models_seen = set()
+        history = DomainLinkHistory.objects.filter(link=master_link).annotate(row_number=RawSQL(
+            'row_number() OVER (PARTITION BY model, model_detail ORDER BY date DESC)',
+            []
+        ))
+        linked_models = dict(LINKED_MODELS)
+        timezone = get_timezone_for_request()
+        for action in history:
+            models_seen.add(action.model)
+            if action.row_number != 1:
+                # first row is the most recent
+                continue
+            try:                                        # TODO: remove try
+                name = linked_models[action.model]
+            except KeyError:
+                continue
+            update = {
+                'type': action.model,
+                'name': name,
+                'last_update': server_to_user_time(action.date, timezone),
+                'detail': action.model_detail,
+                'can_update': True
+            }
+            if action.model == 'app':
+                app_name = ugettext('Unknown App')
+                if action.model_detail:
+                    detail = action.wrapped_detail
+                    app = linked_apps.pop(detail.app_id, None)
+                    app_name = app.name if app else detail.app_id
+                    if app:
+                        update['detail'] = action.model_detail
+                    else:
+                        update['can_update'] = False
+                else:
+                    update['can_update'] = False
+                update['name'] = '{} ({})'.format(name, app_name)
+            model_status.append(update)
+
+        # Add in models that have never been synced
+        for model, name in LINKED_MODELS:
+            if model not in models_seen and model != 'app':
+                model_status.append({
+                    'type': model,
+                    'name': name,
+                    'last_update': ugettext('Never'),
+                    'detail': None,
+                    'can_update': True
+                })
+
+        # Add in apps that have never been synced
+        if linked_apps:
+            for app in linked_apps.values():
+                update = {
+                    'type': 'app',
+                    'name': '{} ({})'.format(linked_models['app'], app.name),
+                    'last_update': None,
+                    'detail': AppLinkDetail(app_id=app._id).to_json(),
+                    'can_update': True
+                }
+                model_status.append(update)
+
+        return sorted(model_status, key=lambda m: m['name'])
 
 
 @method_decorator(domain_admin_required, name='dispatch')
