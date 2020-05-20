@@ -33,6 +33,7 @@ from corehq.apps.domain.decorators import (
 from corehq.apps.domain.views.base import DomainViewMixin
 from corehq.apps.domain.views.settings import BaseAdminProjectSettingsView
 from corehq.apps.hqwebapp.doc_info import get_doc_info_by_id
+from corehq.apps.hqwebapp.decorators import use_multiselect
 from corehq.apps.hqwebapp.templatetags.hq_shared_tags import pretty_doc_info
 from corehq.apps.linked_domain.const import LINKED_MODELS, LINKED_MODELS_MAP
 from corehq.apps.linked_domain.dbaccessors import (
@@ -151,6 +152,10 @@ class DomainLinkView(BaseAdminProjectSettingsView):
     urlname = 'domain_links'
     page_title = ugettext_lazy("Linked Projects")
     template_name = 'linked_domain/domain_links.html'
+
+    @use_multiselect
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
 
     @property
     def page_context(self):
@@ -307,6 +312,14 @@ class DomainLinkRMIView(JSONResponseMixin, View, DomainViewMixin):
             'success': True,
         }
 
+    @allow_remote_invocation
+    def create_release(self, in_data):
+        # in_data['models'], in_data['linked_domains']
+        return {
+            'success': True,
+            'message': ugettext('I did stuff'),
+        }
+
 
 class DomainLinkHistoryReport(GenericTabularReport):
     name = 'Linked Project History'
@@ -397,7 +410,10 @@ class DomainLinkHistoryReport(GenericTabularReport):
         }
 
     def _make_model_cell(self, record):
-        name = LINKED_MODELS_MAP[record.model]
+        try:        # TODO: remove try, probably
+            name = LINKED_MODELS_MAP[record.model]
+        except KeyError:
+            return 'Unknown'
         if record.model != 'app':
             return name
 

@@ -4,12 +4,14 @@ hqDefine("linked_domain/js/domain_links", [
     'underscore',
     'knockout',
     'hqwebapp/js/alert_user',
+    'hqwebapp/js/multiselect_utils',
 ], function (
     RMI,
     initialPageData,
     _,
     ko,
-    alert_user
+    alert_user,
+    multiselectUtils
 ) {
     var _private = {};
     _private.RMI = function () {};
@@ -68,10 +70,8 @@ hqDefine("linked_domain/js/domain_links", [
 
         self.model_status = _.map(data.model_status, ModelStatus);
 
-        self.master_model_status = _.map(data.master_model_status, ModelStatus);
-
         self.linked_domains = ko.observableArray(_.map(data.linked_domains, function (link) {
-            return new DomainLink(link);
+            return DomainLink(link);
         }));
 
         self.deleteLink = function (link) {
@@ -85,17 +85,11 @@ hqDefine("linked_domain/js/domain_links", [
                 });
         };
 
-        self.selectedPushModel = ko.observable();
-        self.openPushModal = function (model) {
-            self.selectedPushModel(model);
-            $("#modal-push-content").modal({show: true});
-        };
-
         return self;
     };
 
     var DomainLink = function (link) {
-        var self = this;
+        var self = {};
         self.linked_domain = ko.observable(link.linked_domain);
         self.is_remote = link.is_remote;
         self.master_domain = link.master_domain;
@@ -106,6 +100,7 @@ hqDefine("linked_domain/js/domain_links", [
         } else {
             self.domain_link = initialPageData.reverse('domain_links', self.linked_domain());
         }
+        return self;
     };
 
     var setRMI = function (rmiUrl, csrfToken) {
@@ -115,7 +110,6 @@ hqDefine("linked_domain/js/domain_links", [
         };
     };
 
-
     $(function () {
         var view_data = initialPageData.get('view_data');
         var csrfToken = $("#csrfTokenContainer").val();
@@ -123,6 +117,33 @@ hqDefine("linked_domain/js/domain_links", [
 
         var model = DomainLinksViewModel(view_data);
         $("#domain_links").koApplyBindings(model);
-        $("#modal-push-content").koApplyBindings(model);
+
+        multiselectUtils.createFullMultiselectWidget(
+            'select-push-domains',
+            gettext("All projects"),
+            gettext("Projects to push to"),
+            gettext("Search projects"),
+        );
+        multiselectUtils.createFullMultiselectWidget(
+            'select-push-models',
+            gettext("All content"),
+            gettext("Content to release"),
+            gettext("Search content"),
+        );
+
+        $("#push-button").click(function () {
+            // TODO: require at least one project
+            // TODO: require at least one model
+            // TODO: disable and reenable the button
+            _private.RMI("create_release", {
+                "models": _.map($("#select-push-models").val(), JSON.parse),
+                "linked_domains": $("#select-push-domains").val(),
+            }).done(function (data) {
+                    alert_user.alert_user(data.message, data.success ? 'success' : 'danger');
+            }).fail(function () {
+                    alert_user.alert_user(gettext('Something unexpected happened.\n' +
+                        'Please try again, or report an issue if the problem persists.'), 'danger');
+            });
+        });
     });
 });
