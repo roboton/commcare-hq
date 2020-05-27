@@ -16,6 +16,7 @@ from corehq.apps.hqwebapp.views import (
     debug_notify,
     domain_login,
     dropbox_upload,
+    iframe_login,
     jserror,
     login,
     login_new_window,
@@ -87,6 +88,7 @@ urlpatterns = [
 domain_specific = [
     url(r'^$', redirect_to_default, name='domain_homepage'),
     url(r'^login/$', domain_login, name='domain_login'),
+    url(r'^login/iframe/$', iframe_login, name='iframe_login'),
     url(r'^retreive_download/(?P<download_id>(?:dl-)?[0-9a-fA-Z]{25,32})/$',
         retrieve_download, {'template': 'hqwebapp/includes/file_download.html'},
         name='hq_soil_download'),

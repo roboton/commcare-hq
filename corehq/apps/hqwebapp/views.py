@@ -448,6 +448,10 @@ def domain_login(req, domain, custom_template_name=None, extra_context=None):
     return _login(req, domain, custom_template_name, extra_context)
 
 
+def iframe_login(req, domain):
+    return domain_login(req, domain, custom_template_name="hqwebapp/iframe_login.html")
+
+
 class HQLoginView(LoginView):
     form_list = [
         ('auth', EmailAuthenticationForm),
