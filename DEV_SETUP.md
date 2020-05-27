@@ -147,12 +147,14 @@ Create the shared directory.  If you have not modified `SHARED_DRIVE_ROOT`, then
 
 ### Set up Docker services
 
+(robon: look for internal docs on how to install docker, reboot likely needed after install)
+
 Once you have completed the above steps, you can use Docker to build
 and run all of the service containers. There are detailed instructions
 for setting up Docker in the [docker folder](docker/README.md). But the
 following should cover the needs of most developers:
 
-    $ sudo apt install docker.io
+    $ sudo apt install docker-ce
     $ pip install docker-compose
     $ sudo adduser $USER docker
 
@@ -163,6 +165,10 @@ Log in as yourself again, to activate membership of the "docker" group:
 Ensure the Docker service is running:
 
     $ sudo service docker status
+
+Fix permissions on the elasticsearch config file:
+
+    $ chmod a+rw docker/files/elasticsearch.yml
 
 Bring up the Docker containers for the services you probably need:
 
@@ -237,7 +243,7 @@ names to the aliases.
 We use Bower to manage our JavaScript dependencies. In order to download the required JavaScript packages,
 you'll need to install `bower` and run `bower install`. Follow these steps to install:
 
-1. If you do not already have npm:
+1. If you do not already have npm: (robon: look for internal docs on how to install docker)
 
     For Ubuntu: In Ubuntu this is now bundled with NodeJS. An up-to-date version is available on the NodeSource
     repository. Run the following commands:
@@ -255,7 +261,7 @@ you'll need to install `bower` and run `bower install`. Follow these steps to in
 
         $ sudo npm -g install bower
 
-3. Run Bower with:
+3. Run Bower with: (robon: this step fails in cloudtop due to spotty connections to github.com)
 
         $ bower install
 
@@ -266,6 +272,17 @@ This is required for the server side xpath validation. See [package.json](packag
 
 ```
 npm install dimagi/js-xpath#v0.0.2-rc1
+```
+
+You may need to install phantomjs:
+
+```
+cd /usr/local/share
+sudo wget https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2
+sudo tar xjf phantomjs-2.1.1-linux-x86_64.tar.bz2
+sudo ln -s /usr/local/share/phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/share/phantomjs
+sudo ln -s /usr/local/share/phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/local/bin/phantomjs
+sudo ln -s /usr/local/share/phantomjs-2.1.1-linux-x86_64/bin/phantomjs /usr/bin/phantomjs
 ```
 
 ### Using LESS: 2 Options
