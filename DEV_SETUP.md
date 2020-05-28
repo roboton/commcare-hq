@@ -139,6 +139,7 @@ First create your `localsettings.py` file:
 Enter `localsettings.py` and do the following:
 - Find the `LOG_FILE` and `DJANGO_LOG_FILE` entries. Ensure that the directories for both exist and are writeable. If they do not exist, create them.
 - You may also want to add the line `from dev_settings import *` at the top of the file, which includes some useful default settings.
+- If you will be running of of your own domain name (beyond localhost) edit `DEFAULT_PROTOCOL`, `OVERRIDE_LOCATION`, and `BASE_ADDRESS` with your domain details.
 
 Create the shared directory.  If you have not modified `SHARED_DRIVE_ROOT`, then run:
 
