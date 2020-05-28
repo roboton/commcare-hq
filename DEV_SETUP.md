@@ -106,7 +106,7 @@ Save those backups to somewhere you'll be able to access from the new environmen
 
 Once all the dependencies are in order, please do the following:
 
-    $ git clone https://github.com/dimagi/commcare-hq.git
+    $ git clone https://github.com/roboton/commcare-hq.git
     $ cd commcare-hq
     $ git submodule update --init --recursive
     $ setvirtualenvproject  # optional - sets this directory as the project root
