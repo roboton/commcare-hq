@@ -243,7 +243,7 @@ names to the aliases.
 We use Bower to manage our JavaScript dependencies. In order to download the required JavaScript packages,
 you'll need to install `bower` and run `bower install`. Follow these steps to install:
 
-1. If you do not already have npm: (robon: look for internal docs on how to install docker)
+1. If you do not already have npm: (robon: look for internal docs on how to install npm)
 
     For Ubuntu: In Ubuntu this is now bundled with NodeJS. An up-to-date version is available on the NodeSource
     repository. Run the following commands:
